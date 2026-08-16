@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
@@ -6,6 +6,7 @@ import type { Agent, AgentStatus } from '@deepseek-ai/dsh-agent'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import type { CommandResult } from '@deepseek-ai/dsh-commands'
 import ObjectiveRegistry from '@deepseek-ai/dsh-objective'
+import { ObjectiveError } from '@deepseek-ai/dsh-objective'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
 import Storage from '@deepseek-ai/dsh-storage'
@@ -104,6 +105,8 @@ describe('@deepseek-ai/dsh-command-objective registration', () => {
     expect(() => {
       commandObjective.apply(ctx, { maxActiveObjectives: 1.5 })
     }).toThrow('positive safe integer')
+    // No config at all resolves the deployment default without throwing.
+    expect(() => { commandObjective.apply(ctx) }).not.toThrow()
   })
 })
 
@@ -172,7 +175,7 @@ describe('/objective human command', () => {
     await expect(run(test, ` brief ${hint}`)).resolves.toMatchObject({
       kind: 'success',
       text: expect.stringContaining('No brief recorded'),
-    })
+    } as Record<string, unknown>)
     await test.ctx.objectives.setBrief(objective?.id as never, 'Six audits converge on P0s first.')
     const shown = await run(test, ` brief ${hint}`)
     expect(shown.text).toContain('Six audits converge on P0s first.')
@@ -186,7 +189,7 @@ describe('/objective human command', () => {
     const hint = String(objective?.id).slice(-8)
     const deleted = await run(test, ` delete ${hint}`)
     expect(deleted).toEqual({ kind: 'success', text: 'Objective deleted: doomed' })
-    await expect(run(test)).resolves.toMatchObject({ text: expect.stringContaining('No objectives yet.') })
+    await expect(run(test)).resolves.toMatchObject({ text: expect.stringContaining('No objectives yet.') } as Record<string, unknown>)
 
     await run(test, ' alpha')
     await run(test, ' beta')
@@ -195,7 +198,7 @@ describe('/objective human command', () => {
     expect(absent.text).toContain("No objective id matches 'nope'")
     const short = await run(test, ' delete e')
     expect(short.kind).toBe('error')
-    expect(short.text).toContain("matches several objectives")
+    expect(short.text).toContain('matches several objectives')
   })
 
   it('rejects id actions without an id and unknown-objective mutations through the domain', async () => {
@@ -206,5 +209,43 @@ describe('/objective human command', () => {
     const missing = await run(test, ' delete ffffffff')
     expect(missing.kind).toBe('error')
     expect(missing.text).toContain('No objective id matches')
+    // The status verbs share the same id resolution.
+    const parked = await run(test, ' park ffffffff')
+    expect(parked.kind).toBe('error')
+    expect(parked.text).toContain('No objective id matches')
+    // The brief verb shares it too.
+    const briefed = await run(test, ' brief ffffffff')
+    expect(briefed.kind).toBe('error')
+    expect(briefed.text).toContain('No objective id matches')
+  })
+
+  it('surfaces a domain rejection as one stable error line and rethrows foreign errors', async () => {
+    const test = await harness()
+    await run(test, ' resilient')
+    const objective = test.ctx.objectives.list()[0]
+    const hint = String(objective?.id).slice(-8)
+    const domain = vi.spyOn(test.ctx.objectives, 'update')
+      .mockRejectedValue(new ObjectiveError('no objective', 'OBJECTIVE_NOT_FOUND'))
+    const rejected = await run(test, ` park ${hint}`)
+    expect(rejected).toEqual({
+      kind: 'error',
+      text: 'The objective command is not valid for the current state. Run /objective to list objectives and ids.',
+    })
+    domain.mockRestore()
+    const foreign = vi.spyOn(test.ctx.objectives, 'delete')
+      .mockRejectedValue(new Error('medium on fire'))
+    await expect(run(test, ` delete ${hint}`)).rejects.toThrow('medium on fire')
+    foreign.mockRestore()
+  })
+
+  it('marks a single member and a recorded brief in the overview', async () => {
+    const test = await harness()
+    await run(test, ' singleton')
+    const objective = test.ctx.objectives.list()[0]
+    const hint = String(objective?.id).slice(-8)
+    await run(test, ` attach ${hint}`)
+    await test.ctx.objectives.setBrief(objective?.id as never, 'One paragraph.')
+    const overview = await run(test)
+    expect(overview.text).toContain('[A] singleton — 1 session, briefed · ')
   })
 })
