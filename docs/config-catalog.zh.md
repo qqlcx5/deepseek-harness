@@ -467,6 +467,22 @@ export interface Config {
 
 来源：[`packages/code-runtime/code-runtime-worker-thread/src/index.ts:25`](../packages/code-runtime/code-runtime-worker-thread/src/index.ts)
 
+<a id="deepseek-aidsh-command-objective"></a>
+
+## `@deepseek-ai/dsh-command-objective`
+
+需要：`commands` · `objectives`
+
+```ts config-catalog
+/** WIP signal policy: the soft cap shown and warned about by the command. */
+export interface Config {
+  /** Soft upper bound on concurrently active objectives; creation never blocks. */
+  maxActiveObjectives?: number
+}
+```
+
+来源：[`packages/objective/command-objective/src/index.ts:16`](../packages/objective/command-objective/src/index.ts)
+
 <a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-compaction-basic`

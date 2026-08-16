@@ -83,10 +83,10 @@ function idHint(id: ObjectiveId): string {
   return String(id).slice(-8)
 }
 
-/** Resolve one id prefix against the current list: unique, ambiguous, or absent. */
+/** Resolve one id fragment against the current list: unique, ambiguous, or absent. */
 function resolveByPrefix(objectives: readonly ObjectiveView[], prefix: string)
   : { kind: 'one'; objective: ObjectiveView } | { kind: 'ambiguous'; hints: string[] } | { kind: 'absent' } {
-  const matches = objectives.filter(objective => String(objective.id).endsWith(prefix) || prefix === String(objective.id))
+  const matches = objectives.filter(objective => prefix.length > 0 && String(objective.id).includes(prefix))
   if (matches.length === 0) return { kind: 'absent' }
   if (matches.length > 1) return { kind: 'ambiguous', hints: matches.map(objective => idHint(objective.id)) }
   return { kind: 'one', objective: matches[0] as ObjectiveView }

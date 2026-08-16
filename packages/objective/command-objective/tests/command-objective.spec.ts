@@ -4,6 +4,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentStatus } from '@deepseek-ai/dsh-agent'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
+import type { CommandResult } from '@deepseek-ai/dsh-commands'
 import ObjectiveRegistry from '@deepseek-ai/dsh-objective'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
@@ -61,16 +62,13 @@ async function harness(config: commandObjective.Config = {}): Promise<Harness> {
 }
 
 /** Execute `/objective` through the same registry boundary as a UI adapter. */
-async function run(test: Harness, suffix = ''): Promise<{ kind: string; text: string }> {
+async function run(test: Harness, suffix = ''): Promise<CommandResult> {
   const execution = await test.ctx.commands.execute(
     test.agent,
     `/objective${suffix}`,
     new AbortController().signal,
   )
-  if (execution === undefined) {
-    process.stdout.write(`DBG find=${test.ctx.commands.find(test.agent, 'objective')?.name} input=${JSON.stringify(test.agent.session.id)}\n`)
-    throw new Error('objective command was not registered')
-  }
+  if (execution === undefined) throw new Error('objective command was not registered')
   return execution.result
 }
 
@@ -124,8 +122,8 @@ describe('/objective human command', () => {
     expect(created.kind).toBe('success')
     expect(created.text).toContain('Objective created\nStatus: active')
     expect(created.text).toContain('Objective: stabilize rulelift')
-    await run(test, 'ship harness v1')
-    const over = await run(test, 'third objective')
+    await run(test, ' ship harness v1')
+    const over = await run(test, ' third objective')
     expect(over.text).toContain('Active objectives exceed the configured cap (3/2)')
     const overview = await run(test)
     expect(overview.text).toContain('Active: 3/2')
@@ -135,24 +133,26 @@ describe('/objective human command', () => {
 
   it('parks, closes, and reopens by unique id prefix', async () => {
     const test = await harness()
-    await run(test, 'one')
-    await run(test, 'two')
+    await run(test, ' one')
+    await run(test, ' two')
     const first = test.ctx.objectives.list()[1]
     expect(first?.title).toBe('one')
     const hint = String(first?.id).slice(-8)
     const parked = await run(test, ` park ${hint}`)
     expect(parked.text).toContain('Status: parked')
+    const afterPark = await run(test)
+    expect(afterPark.text).toContain('[P]')
     const closed = await run(test, ` close ${hint}`)
     expect(closed.text).toContain('Status: closed')
     const overview = await run(test)
-    expect(overview.text).toContain('[P]')
+    expect(overview.text).toContain('[C]')
     await run(test, ` reopen ${hint}`)
     expect(test.ctx.objectives.get(first?.id as never)?.status).toBe('active')
   })
 
   it('attaches and detaches the commanding session and mirrors the event', async () => {
     const test = await harness()
-    await run(test, 'convergence')
+    await run(test, ' convergence')
     const objective = test.ctx.objectives.list()[0]
     const hint = String(objective?.id).slice(-8)
     const attached = await run(test, ` attach ${hint}`)
@@ -166,7 +166,7 @@ describe('/objective human command', () => {
 
   it('shows a recorded brief with its stamp and a clear empty state', async () => {
     const test = await harness()
-    await run(test, 'briefed work')
+    await run(test, ' briefed work')
     const objective = test.ctx.objectives.list()[0]
     const hint = String(objective?.id).slice(-8)
     await expect(run(test, ` brief ${hint}`)).resolves.toMatchObject({
@@ -181,15 +181,15 @@ describe('/objective human command', () => {
 
   it('deletes by id prefix and reports unknown and ambiguous prefixes', async () => {
     const test = await harness()
-    await run(test, 'doomed')
+    await run(test, ' doomed')
     const objective = test.ctx.objectives.list()[0]
     const hint = String(objective?.id).slice(-8)
     const deleted = await run(test, ` delete ${hint}`)
     expect(deleted).toEqual({ kind: 'success', text: 'Objective deleted: doomed' })
-    expect(await run(test)).resolves.toMatchObject({ text: expect.stringContaining('No objectives yet.') })
+    await expect(run(test)).resolves.toMatchObject({ text: expect.stringContaining('No objectives yet.') })
 
-    await run(test, 'alpha')
-    await run(test, 'beta')
+    await run(test, ' alpha')
+    await run(test, ' beta')
     const absent = await run(test, ' attach nope')
     expect(absent.kind).toBe('error')
     expect(absent.text).toContain("No objective id matches 'nope'")
