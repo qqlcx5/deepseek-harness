@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-08-16-agentdeck-convergence-layers.md
+2026-08-16-agentdeck-convergence-layers.md: 85a81704db95c4c40498f644c7cc093af6af8e2a
+2026-08-16-agentdeck-convergence-layers.zh.md: d3fbc936de180a07acac672a49a51004158384e4
