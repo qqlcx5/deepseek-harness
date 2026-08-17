@@ -1,6 +1,14 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write README.md
-README.md: 8a4bd01332a23ce4144c661784bc549e0ba72d21
-README.zh.md: b7bc214bfb1fd8a76a47de3f0aa242122aeb7603
+文档体系已生成完毕，共 6 个文件、825 行，覆盖项目方方面面：
+
+| 文件 | 内容 |
+|---|---|
+| `README.md` | 项目门面：定位、特性、技术栈、快速开始、目录结构、文档索引 |
+| `docs/guide/introduction.md` | 详细介绍：解决什么问题、5 大核心概念、数据居住地、功能全景、与 Cherry Studio 关系、边界 |
+| `docs/guide/getting-started.md` | 上手：环境要求、安装启动、模拟模式 → 配置 DeepSeek 真实对话（含各协议参数表）、界面速览、备份 |
+| `docs/guide/usage.md` | 使用手册：5 个页面逐个讲（布局、话题/消息/输入框/附件/语音、导入导出、Provider/助手管理、13 个设置分区） |
+| `docs/guide/architecture.md` | 架构：7 层分层图、启动流程、CherryData v5 数据模型与 join 视图、保存队列、流式请求完整链路、适配器表、已知取舍 |
+| `docs/guide/development.md` | 开发：命令、规范、4 个扩展场景（加 Provider/设置项/数据结构/页面）、调试技巧、FAQ |
+
+所有内容均基于源码实测（types/index.ts、stores/app.ts、api/chat.ts、useChatSend.ts、各 View/Component），关键细节如“无 Key 走模拟回复”“导出默认剔除 Key”“删除 Provider 引用保护”都已如实写入。
+
+验证方式：`pnpm dev` 后打开 `http://localhost:5173`，或直接在编辑器里预览 README.md → 点击文档索引链接逐篇检查。

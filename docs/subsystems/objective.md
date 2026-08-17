@@ -98,9 +98,13 @@ async detachSession(id: ObjectiveId, sessionId: SessionId): Promise<ObjectiveVie
  * no model-visible input.
  * @param id - Objective id.
  * @param brief - Non-empty brief text.
+ * @param expectedBriefAt - Compare-and-set fence: the `briefAt` the caller
+ * read (or `null` when no brief was recorded). A mismatch — another writer
+ * stored a brief in between — rejects with `OBJECTIVE_STALE_BRIEF` instead
+ * of silently overwriting it; omit the argument to write unconditionally.
  * @returns the updated view.
  */
-async setBrief(id: ObjectiveId, brief: string): Promise<ObjectiveView>
+async setBrief(id: ObjectiveId, brief: string, expectedBriefAt?: string | null): Promise<ObjectiveView>
 
 /**
  * Delete one objective record while retaining every member session log
@@ -117,7 +121,7 @@ async delete(id: ObjectiveId): Promise<boolean>
 
 Types: [SessionId](core.md)
 
-Source: [`packages/objective/objective/src/index.ts:213`](../../packages/objective/objective/src/index.ts)
+Source: [`packages/objective/objective/src/index.ts:215`](../../packages/objective/objective/src/index.ts)
 
 <a id="objective-events"></a>
 
@@ -139,5 +143,5 @@ One durable objective mutation committed.
 'objective/changed'(payload: ObjectiveChanged): void
 ```
 
-Source: [`packages/objective/objective/src/index.ts:121`](../../packages/objective/objective/src/index.ts)
+Source: [`packages/objective/objective/src/index.ts:123`](../../packages/objective/objective/src/index.ts)
 <!-- END GENERATED cordis-surface -->

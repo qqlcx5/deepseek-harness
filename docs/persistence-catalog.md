@@ -509,7 +509,7 @@ Source: [`packages/llm/llm-retry/src/types.ts:11`](../packages/llm/llm-retry/src
 'objective/member': ObjectiveMemberMeta
 ```
 
-Source: [`packages/objective/objective/src/index.ts:103`](../packages/objective/objective/src/index.ts)
+Source: [`packages/objective/objective/src/index.ts:105`](../packages/objective/objective/src/index.ts)
 
 ### `permission/*`
 

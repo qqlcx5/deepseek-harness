@@ -107,7 +107,10 @@ interface Harness {
   readonly snapshots: Map<string, { header: unknown; events: unknown[] }>
 }
 
-async function harness(provider = new ScriptedProvider()): Promise<Harness> {
+async function harness(
+  provider = new ScriptedProvider(),
+  config: Record<string, unknown> = {},
+): Promise<Harness> {
   const ctx = new Context()
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(CommandRuntime)
@@ -128,7 +131,7 @@ async function harness(provider = new ScriptedProvider()): Promise<Harness> {
       return snapshot
     },
   } as never)
-  const plugin = await ctx.plugin(objectiveSynthesizer, { provider: 'synth-test' })
+  const plugin = await ctx.plugin(objectiveSynthesizer, { provider: 'synth-test', ...config })
   const { agent, session } = stubAgent(ctx, `synth-root-${Math.random()}`)
   ctx.agents.register(agent)
   return { ctx, agent, session, provider, plugin, snapshots }
@@ -251,7 +254,7 @@ describe('/synthesize delegation', () => {
     expect(rejected.text).toContain('No objective id matches')
     await expect(objectiveSynthesizer.synthesizeObjective(
       test.ctx,
-      'synth-test',
+      objectiveSynthesizer.resolveConfig({ provider: 'synth-test' }),
       test.agent,
       ObjectiveId('objective-void'),
       new AbortController().signal,
@@ -300,10 +303,36 @@ describe('/synthesize delegation', () => {
     expect(stored2.text?.split('- ').length).toBe(2)
   })
 
-  it('applies with no config at all by resolving the default provider', async () => {
+  it('skips a non-active objective and honors configured material limits', async () => {
+    const test = await harness()
+    const objective = await objectiveWithMembers(test, ['material'])
+    await test.ctx.objectives.update(objective.id, { status: 'parked' })
+    const parked = await run(test, ` ${String(objective.id).slice(-8)}`)
+    expect(parked.kind).toBe('error')
+    expect(parked.text).toContain('is parked; the synthesizer skips non-active objectives')
+    expect(test.provider.captured).toBeUndefined()
+
+    // materialTail config trims each member's contribution to the last message.
+    const tight = new ScriptedProvider()
+    tight.result = { output: [], structured: { brief: 'One track only.', openQuestions: [] }, stopReason: 'completed' }
+    const test2 = await harness(tight, { materialTail: 1 })
+    const objective2 = await test2.ctx.objectives.create({ title: 'tight' })
+    const member2 = test2.ctx.sessions.create(SessionId('member-tight'))
+    test2.snapshots.set(String(member2.id), memberSnapshot(['old', 'new']))
+    await test2.ctx.objectives.attachSession(objective2.id, member2.id)
+    const stored = await run(test2, ` ${String(objective2.id).slice(-8)}`)
+    expect(stored.kind).toBe('success')
+    expect(tight.captured?.promptText).toContain('- new')
+    expect(tight.captured?.promptText).not.toContain('- old')
+  })
+
+  it('applies with no config at all and rejects invalid limits', async () => {
     const ctx = new Context()
     await ctx.plugin(CommandRuntime)
     expect(() => { objectiveSynthesizer.apply(ctx) }).not.toThrow()
+    expect(() => { objectiveSynthesizer.resolveConfig({ provider: '' }) }).toThrow('non-empty string')
+    expect(() => { objectiveSynthesizer.resolveConfig({ materialTail: 0 }) }).toThrow('positive safe integer')
+    expect(() => { objectiveSynthesizer.resolveConfig({ messageCapChars: 10 }) }).toThrow('at least 200')
   })
 
   it('rethrows infrastructure faults loudly', async () => {

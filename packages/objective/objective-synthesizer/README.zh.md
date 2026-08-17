@@ -11,13 +11,15 @@
   name: '@deepseek-ai/dsh-objective-synthesizer'
   config:
     provider: spawn
+    materialTail: 3
+    messageCapChars: 2000
 ```
 
-`provider` 命名运行综述 child 的已注册 `ctx.subagents` 提供方;默认 `spawn` 对应自带的 spawn-in-process 后端。
+`provider` 命名运行综述 child 的已注册 `ctx.subagents` 提供方;默认 `spawn` 对应自带的 spawn-in-process 后端。`materialTail`(正安全整数,默认 3)是每个成员会话贡献的尾部 assistant 消息数;`messageCapChars`(至少 200 的安全整数,默认 2000)是每条消息的字符上限。
 
 ## Delegation contract
 
-`synthesizeObjective(ctx, provider, parent, objectiveId, signal)` 读取目标,为每个成员会话收集一个材料块(经 `ctx.sessionQuery.readSession` 取尾部三条 assistant 文本消息,每条上限 2000 字符),并以 `maxDepth: 0` 启动一个 child——综述 child 不能再委派,该 pass 只做 fan-in。child 必须返回 `{ brief, openQuestions }`;存储的 brief 由该段落加非空白待决问题渲染。无成员会话、child 未以 `stopReason: 'completed'` 结束、或结构化结果缺失/畸形,都以稳定的 `ObjectiveSynthesisError` 码拒绝;基础设施故障原样重抛。run 总会被 dispose。
+`synthesizeObjective(ctx, resolved, parent, objectiveId, signal)` 读取目标,拒绝非 active 目标(parked 目标是 WIP 手柄,跳过;closed 目标须先重开),为每个成员会话收集一个材料块(经 `ctx.sessionQuery.readSession` 取尾部 `materialTail` 条 assistant 文本消息,每条上限 `messageCapChars`),并以 `maxDepth: 0` 启动一个 child——综述 child 不能再委派,该 pass 只做 fan-in。child 必须返回 `{ brief, openQuestions }`;存储的 brief 由该段落加非空白待决问题渲染。brief 写入以本次运行读到的 `briefAt` 做 compare-and-set:期间另一综述已存入 brief 时以 `OBJECTIVE_STALE_BRIEF` 拒绝,而非静默覆盖。无成员会话、child 未以 `stopReason: 'completed'` 结束、或结构化结果缺失/畸形,都以稳定的 `ObjectiveSynthesisError` 码拒绝;基础设施故障原样重抛。run 总会被 dispose。
 
 本包注册同一路径上的 `/synthesize <objective id>` 人类命令:解析 id 片段、以发令 agent 为锚运行委派、打印存储的 brief。
 

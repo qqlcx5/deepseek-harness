@@ -63,6 +63,8 @@ export function ObjectiveId(id: string): ObjectiveId {
 /** Stable error codes for rejected objective reads and mutations. */
 export type ObjectiveErrorCode =
   | 'OBJECTIVE_NOT_FOUND'
+  | 'OBJECTIVE_NOT_ACTIVE'
+  | 'OBJECTIVE_STALE_BRIEF'
   | 'OBJECTIVE_INVALID_TITLE'
   | 'OBJECTIVE_INVALID_NORTH_STAR'
   | 'OBJECTIVE_INVALID_STATUS'
@@ -352,6 +354,15 @@ export class ObjectiveRegistry extends Service {
     return this.enqueueOperation(async () => {
       const record = this.requireRecord(id)
       if (record.sessionIds.includes(sessionId)) return this.view(id, record)
+      // A parked objective accepts no new membership (it is the WIP lever), and
+      // a closed one must be reopened first; the idempotent path above still
+      // resolves for an already-accounted member.
+      if (record.status !== 'active') {
+        throw new ObjectiveError(
+          `objective '${record.title}' is ${record.status}; only an active objective accepts new membership`,
+          'OBJECTIVE_NOT_ACTIVE',
+        )
+      }
       const next: ObjectiveRecord = {
         ...record,
         sessionIds: [sessionId, ...record.sessionIds],
@@ -394,12 +405,22 @@ export class ObjectiveRegistry extends Service {
    * no model-visible input.
    * @param id - Objective id.
    * @param brief - Non-empty brief text.
+   * @param expectedBriefAt - Compare-and-set fence: the `briefAt` the caller
+   * read (or `null` when no brief was recorded). A mismatch — another writer
+   * stored a brief in between — rejects with `OBJECTIVE_STALE_BRIEF` instead
+   * of silently overwriting it; omit the argument to write unconditionally.
    * @returns the updated view.
    */
-  async setBrief(id: ObjectiveId, brief: string): Promise<ObjectiveView> {
+  async setBrief(id: ObjectiveId, brief: string, expectedBriefAt?: string | null): Promise<ObjectiveView> {
     const text = resolveBrief(brief)
     return this.enqueueOperation(async () => {
       const record = this.requireRecord(id)
+      if (expectedBriefAt !== undefined && (expectedBriefAt ?? undefined) !== (record.briefAt ?? undefined)) {
+        throw new ObjectiveError(
+          `objective '${record.title}' received another brief since the caller read it; re-read and retry`,
+          'OBJECTIVE_STALE_BRIEF',
+        )
+      }
       const at = this.nextMutationTime(record)
       const next: ObjectiveRecord = { ...record, brief: text, briefAt: at, updatedAt: at }
       await this.requireTable().put(id, next)

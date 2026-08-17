@@ -954,9 +954,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the updated view.',
       },
       {
-        signature: 'async setBrief(id: ObjectiveId, brief: string): Promise<ObjectiveView>',
+        signature: 'async setBrief(id: ObjectiveId, brief: string, expectedBriefAt?: string | null): Promise<ObjectiveView>',
         description: 'Store the objective-level brief (the cached synthesis output: one paragraph of current conclusions) and stamp `briefAt`. The brief reaches a model only through a logged inject by a consumer; this method writes no model-visible input.',
-        parameters: [{ name: 'id', description: 'Objective id.' }, { name: 'brief', description: 'Non-empty brief text.' }],
+        parameters: [{ name: 'id', description: 'Objective id.' }, { name: 'brief', description: 'Non-empty brief text.' }, { name: 'expectedBriefAt', description: 'Compare-and-set fence: the `briefAt` the caller read (or `null` when no brief was recorded). A mismatch — another writer stored a brief in between — rejects with `OBJECTIVE_STALE_BRIEF` instead of silently overwriting it; omit the argument to write unconditionally.' }],
         returns: 'the updated view.',
       },
       {

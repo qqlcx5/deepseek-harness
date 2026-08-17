@@ -199,14 +199,50 @@ describe('objective registry', () => {
     const { ctx, registry, changes } = await harness()
     const session = ctx.sessions.create(SessionId('member-events'))
     const objective = await registry.create({ title: 'observed' })
-    await registry.update(objective.id, { status: 'parked' })
     await registry.attachSession(objective.id, session.id)
+    await registry.update(objective.id, { status: 'parked' })
     await registry.setBrief(objective.id, 'one paragraph')
     await registry.delete(objective.id)
-    expect(changes.map(change => change.operation)).toEqual(['create', 'update', 'attach', 'brief', 'delete'])
+    expect(changes.map(change => change.operation)).toEqual(['create', 'attach', 'update', 'brief', 'delete'])
     expect(changes[0]?.objective?.title).toBe('observed')
     expect(changes[changes.length - 1]?.objective).toBeUndefined()
     expect(() => { ctx.emit('objective/changed', { operation: 'delete' }) }).not.toThrow()
+  })
+
+  it('rejects new membership on parked and closed objectives but keeps the idempotent path', async () => {
+    const { ctx, registry } = await harness()
+    const session = ctx.sessions.create(SessionId('member-parked'))
+    const objective = await registry.create({ title: 'wip lever' })
+    await registry.attachSession(objective.id, session.id)
+    await registry.update(objective.id, { status: 'parked' })
+    // Already-accounted member: the idempotent path still resolves.
+    const again = await registry.attachSession(objective.id, session.id)
+    expect(again.sessionIds).toEqual([session.id])
+    // A new member on a parked objective is the WIP lever firing: rejected.
+    const newcomer = ctx.sessions.create(SessionId('member-new'))
+    await expect(registry.attachSession(objective.id, newcomer.id))
+      .rejects.toMatchObject({ code: 'OBJECTIVE_NOT_ACTIVE' })
+    await registry.update(objective.id, { status: 'closed' })
+    await expect(registry.attachSession(objective.id, newcomer.id))
+      .rejects.toMatchObject({ code: 'OBJECTIVE_NOT_ACTIVE' })
+  })
+
+  it('guards brief writes with a compare-and-set fence on the brief stamp', async () => {
+    const { registry } = await harness()
+    const objective = await registry.create({ title: 'brief cas' })
+    // No brief yet: a null expectation matches.
+    const first = await registry.setBrief(objective.id, 'first brief', null)
+    // The recorded stamp fences a concurrent writer that read the null state.
+    await expect(registry.setBrief(objective.id, 'stale writer', null))
+      .rejects.toMatchObject({ code: 'OBJECTIVE_STALE_BRIEF' })
+    // A wrong concrete stamp rejects the same way.
+    await expect(registry.setBrief(objective.id, 'wrong stamp', '2000-01-01T00:00:00.000Z'))
+      .rejects.toMatchObject({ code: 'OBJECTIVE_STALE_BRIEF' })
+    // The exact stamp writes; omitting the fence writes unconditionally.
+    const second = await registry.setBrief(objective.id, 'second brief', first.briefAt)
+    expect(second.brief).toBe('second brief')
+    const third = await registry.setBrief(objective.id, 'unconditional')
+    expect(third.brief).toBe('unconditional')
   })
 
   it('folds membership per objective with the last action winning', async () => {

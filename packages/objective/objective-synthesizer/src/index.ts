@@ -23,20 +23,51 @@ import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 export const name = 'objective-synthesizer'
 export const inject = ['commands', 'objectives', 'sessionQuery', 'subagents']
 
-/** Deployment-owned delegation target: the registered subagent provider name. */
+/** Deployment-owned delegation target and material limits. */
 export interface Config {
   /** Registered `ctx.subagents` provider name that runs the synthesis child. */
   provider?: string
+  /** Trailing assistant messages each member session contributes. */
+  materialTail?: number
+  /** Per-message character cap for contributed material. */
+  messageCapChars?: number
 }
 
-/** Schemastery config for the synthesis delegation target. */
+/** Schemastery config for the synthesis delegation target and material limits. */
 export const Config: z<Config> = z.object({
   provider: z.string().default('spawn'),
+  materialTail: z.number().step(1).min(1).default(3),
+  messageCapChars: z.number().step(1).min(200).default(2000),
 })
+
+/** Fully materialized synthesis policy. */
+export interface ResolvedConfig {
+  readonly provider: string
+  readonly materialTail: number
+  readonly messageCapChars: number
+}
+
+/** Validate config even when apply is called directly outside Loader normalization. */
+export function resolveConfig(config: Config): ResolvedConfig {
+  const provider = config.provider ?? 'spawn'
+  const materialTail = config.materialTail ?? 3
+  const messageCapChars = config.messageCapChars ?? 2000
+  if (typeof provider !== 'string' || provider.length === 0) {
+    throw new TypeError('provider must be a non-empty string')
+  }
+  if (!Number.isSafeInteger(materialTail) || materialTail < 1) {
+    throw new TypeError('materialTail must be a positive safe integer')
+  }
+  if (!Number.isSafeInteger(messageCapChars) || messageCapChars < 200) {
+    throw new TypeError('messageCapChars must be a safe integer of at least 200')
+  }
+  return { provider, materialTail, messageCapChars }
+}
 
 /** Stable error codes for rejected synthesis runs. */
 export type ObjectiveSynthesisErrorCode =
   | 'SYNTH_NO_MEMBERS'
+  | 'SYNTH_OBJECTIVE_NOT_ACTIVE'
   | 'SYNTH_CHILD_FAILED'
   | 'SYNTH_NO_STRUCTURED_OUTPUT'
 
@@ -57,12 +88,6 @@ export interface SynthesisOutput {
   readonly brief: string
   readonly openQuestions: readonly string[]
 }
-
-/** How many trailing assistant messages each member session contributes. */
-const ASSISTANT_TAIL = 3
-
-/** Character cap per contributed assistant message. */
-const MESSAGE_CAP = 2000
 
 /** Object-rooted JSON Schema of the child's structured result. */
 const SYNTHESIS_OUTPUT_SCHEMA: ObjectJsonSchema = {
@@ -92,15 +117,20 @@ function assistantText(content: readonly ContentBlock[]): string {
 }
 
 /** Render one member session's contribution: its trailing conclusions. */
-function renderMember(sessionId: SessionId, snapshot: SessionLogSnapshot): string {
+function renderMember(
+  sessionId: SessionId,
+  snapshot: SessionLogSnapshot,
+  materialTail: number,
+  messageCapChars: number,
+): string {
   const conclusions: string[] = []
   for (const event of snapshot.events) {
     if (event.type !== 'assistant/message') continue
     const text = assistantText(event.data.message.content)
     if (text.length > 0) conclusions.push(text)
   }
-  const tail = conclusions.slice(-ASSISTANT_TAIL)
-    .map(text => text.length > MESSAGE_CAP ? `${text.slice(0, MESSAGE_CAP)}…` : text)
+  const tail = conclusions.slice(-materialTail)
+    .map(text => text.length > messageCapChars ? `${text.slice(0, messageCapChars)}…` : text)
   return [
     `Session ${String(sessionId).slice(-8)}:`,
     ...(tail.length === 0 ? ['(no recorded assistant conclusions)'] : tail.map(text => `- ${text}`)),
@@ -159,11 +189,12 @@ function renderBriefText(output: SynthesisOutput): string {
 export async function collectMemberMaterial(
   ctx: Context,
   objective: ObjectiveView,
+  limits: Pick<ResolvedConfig, 'materialTail' | 'messageCapChars'>,
 ): Promise<string[]> {
   const material: string[] = []
   for (const sessionId of objective.sessionIds) {
     const snapshot = await ctx.sessionQuery.readSession(sessionId)
-    material.push(renderMember(sessionId, snapshot))
+    material.push(renderMember(sessionId, snapshot, limits.materialTail, limits.messageCapChars))
   }
   return material
 }
@@ -181,7 +212,7 @@ export async function collectMemberMaterial(
  */
 export async function synthesizeObjective(
   ctx: Context,
-  provider: string,
+  resolved: ResolvedConfig,
   parent: Agent,
   objectiveId: ObjectiveId,
   signal: AbortSignal,
@@ -190,14 +221,22 @@ export async function synthesizeObjective(
   if (objective === undefined) {
     throw new ObjectiveError(`no objective '${String(objectiveId)}'`, 'OBJECTIVE_NOT_FOUND')
   }
-  const material = await collectMemberMaterial(ctx, objective)
+  // A parked objective is the WIP lever and is skipped; a closed one must be
+  // reopened first.
+  if (objective.status !== 'active') {
+    throw new ObjectiveSynthesisError(
+      `objective '${objective.title}' is ${objective.status}; the synthesizer skips non-active objectives`,
+      'SYNTH_OBJECTIVE_NOT_ACTIVE',
+    )
+  }
+  const material = await collectMemberMaterial(ctx, objective, resolved)
   if (objective.sessionIds.length === 0) {
     throw new ObjectiveSynthesisError(
       `objective '${objective.title}' has no member sessions to synthesize`,
       'SYNTH_NO_MEMBERS',
     )
   }
-  const run = await ctx.subagents.start(provider, {
+  const run = await ctx.subagents.start(resolved.provider, {
     prompt: [synthesisPrompt(objective, material)],
     parent,
     signal,
@@ -212,7 +251,10 @@ export async function synthesizeObjective(
         'SYNTH_CHILD_FAILED',
       )
     }
-    return await ctx.objectives.setBrief(objectiveId, renderBriefText(validateOutput(result.structured)))
+    const briefText = renderBriefText(validateOutput(result.structured))
+    // Compare-and-set on the brief stamp the run read: a concurrent synthesis
+    // that stored a brief in between rejects instead of silently overwriting.
+    return await ctx.objectives.setBrief(objectiveId, briefText, objective.briefAt ?? null)
   } finally {
     await run.dispose()
   }
@@ -232,16 +274,16 @@ function resolveObjectiveFragment(ctx: Context, fragment: string): { id: Objecti
 
 /** Register the `/synthesize` command over the same delegation path. */
 export function apply(ctx: Context, config: Config = {}): void {
-  const provider = config.provider ?? 'spawn'
+  const resolved = resolveConfig(config)
   ctx.commands.register({
     name: 'synthesize',
     description: 'run one synthesis pass over an objective and store its brief',
     input: { hint: '<objective id>' },
     handler: async (invocation: CommandInvocation): Promise<CommandResult> => {
-      const resolved = resolveObjectiveFragment(ctx, invocation.rawInput)
-      if ('error' in resolved) return { kind: 'error', text: resolved.error }
+      const resolvedFragment = resolveObjectiveFragment(ctx, invocation.rawInput)
+      if ('error' in resolvedFragment) return { kind: 'error', text: resolvedFragment.error }
       try {
-        const objective = await synthesizeObjective(ctx, provider, invocation.agent, resolved.id, invocation.signal)
+        const objective = await synthesizeObjective(ctx, resolved, invocation.agent, resolvedFragment.id, invocation.signal)
         return {
           kind: 'success',
           text: [

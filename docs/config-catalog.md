@@ -1316,10 +1316,14 @@ Source: [`packages/feedback/message-feedback/src/index.ts:49`](../packages/feedb
 Requires: `commands` · `objectives` · `sessionQuery` · `subagents`
 
 ```ts config-catalog
-/** Deployment-owned delegation target: the registered subagent provider name. */
+/** Deployment-owned delegation target and material limits. */
 export interface Config {
   /** Registered `ctx.subagents` provider name that runs the synthesis child. */
   provider?: string
+  /** Trailing assistant messages each member session contributes. */
+  materialTail?: number
+  /** Per-message character cap for contributed material. */
+  messageCapChars?: number
 }
 ```
 

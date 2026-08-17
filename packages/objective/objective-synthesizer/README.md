@@ -11,13 +11,15 @@ Objective synthesis meta-agent: one fan-in pass over the [subagent seam](../../s
   name: '@deepseek-ai/dsh-objective-synthesizer'
   config:
     provider: spawn
+    materialTail: 3
+    messageCapChars: 2000
 ```
 
-`provider` names the registered `ctx.subagents` provider that runs the synthesis child; the default `spawn` matches the stock spawn-in-process backend.
+`provider` names the registered `ctx.subagents` provider that runs the synthesis child; the default `spawn` matches the stock spawn-in-process backend. `materialTail` (a positive safe integer, default 3) is how many trailing assistant messages each member session contributes, and `messageCapChars` (a safe integer of at least 200, default 2000) caps each contributed message.
 
 ## Delegation contract
 
-`synthesizeObjective(ctx, provider, parent, objectiveId, signal)` reads the objective, collects one material block per member session (the trailing three assistant text messages, capped at 2000 characters each, through `ctx.sessionQuery.readSession`), and starts one child with `maxDepth: 0` — the synthesis child cannot delegate further, so the pass is fan-in only. The child must return `{ brief, openQuestions }`; the stored brief renders the paragraph plus the non-blank open questions. A run with no member sessions, a child that ends without `stopReason: 'completed'`, or a missing or malformed structured result rejects with a stable `ObjectiveSynthesisError` code; infrastructure faults rethrow as themselves. The run is always disposed.
+`synthesizeObjective(ctx, resolved, parent, objectiveId, signal)` reads the objective, rejects a non-active one (a parked objective is the WIP lever and is skipped; a closed one must be reopened first), collects one material block per member session (the trailing `materialTail` assistant text messages, capped at `messageCapChars` each, through `ctx.sessionQuery.readSession`), and starts one child with `maxDepth: 0` — the synthesis child cannot delegate further, so the pass is fan-in only. The child must return `{ brief, openQuestions }`; the stored brief renders the paragraph plus the non-blank open questions. The brief write is fenced compare-and-set on the `briefAt` the run read: a concurrent synthesis that stored a brief in between rejects with `OBJECTIVE_STALE_BRIEF` instead of silently overwriting. A run with no member sessions, a child that ends without `stopReason: 'completed'`, or a missing or malformed structured result rejects with a stable `ObjectiveSynthesisError` code; infrastructure faults rethrow as themselves. The run is always disposed.
 
 The package registers the `/synthesize <objective id>` human command over the same path: it resolves the id fragment, runs the delegation anchored on the commanding agent, and prints the stored brief.
 
