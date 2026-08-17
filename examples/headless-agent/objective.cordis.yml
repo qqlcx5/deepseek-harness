@@ -1,0 +1,31 @@
+# Cross-session objective layer over the one-shot app: the registry, its
+# model-facing tools, the human command, and the synthesis consumer. Storage
+# rides the JSON domain backend under the harness home.
+- id: base
+  name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - insert:
+          - id: storage
+            name: '@deepseek-ai/dsh-storage'
+          - id: storage-json
+            name: '@deepseek-ai/dsh-storage-json'
+            config:
+              root: !!js dshHomePath('storages')
+          - id: storage-domain
+            name: '@deepseek-ai/dsh-storage-domain'
+            config:
+              backend: json
+          - id: commands
+            name: '@deepseek-ai/dsh-commands'
+          - id: objective
+            name: '@deepseek-ai/dsh-objective'
+          - id: tool-objective
+            name: '@deepseek-ai/dsh-tool-objective'
+          - id: command-objective
+            name: '@deepseek-ai/dsh-command-objective'
+          - id: session-query
+            name: '@deepseek-ai/dsh-session-query'
+          - id: objective-synthesizer
+            name: '@deepseek-ai/dsh-objective-synthesizer'

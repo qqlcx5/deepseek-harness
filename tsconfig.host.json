@@ -172,6 +172,7 @@
     { "path": "./packages/objective/objective" },
     { "path": "./packages/objective/tool-objective" },
     { "path": "./packages/objective/command-objective" },
+    { "path": "./packages/objective/objective-synthesizer" },
     { "path": "./packages/feedback/command-feedback" },
     { "path": "./packages/schedule/schedule" },
     { "path": "./packages/context/time-context" },

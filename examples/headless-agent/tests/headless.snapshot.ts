@@ -31,6 +31,8 @@ const ptyStreamExpected = join(ptyScenarioDir, 'stream-json.expected.jsonl')
 const ptyConfigPath = fileURLToPath(new URL('../pty.cordis.snapshot.yml', import.meta.url))
 const goalScenarioDir = join(snapshotsDir, 'goal-tools')
 const goalConfigPath = fileURLToPath(new URL('../goal.cordis.snapshot.yml', import.meta.url))
+const objectiveScenarioDir = join(snapshotsDir, 'objective-tools')
+const objectiveConfigPath = fileURLToPath(new URL('../objective.cordis.snapshot.yml', import.meta.url))
 const retryScenarioDir = join(snapshotsDir, 'provider-retry')
 const retryConfigPath = fileURLToPath(new URL('../retry.cordis.snapshot.yml', import.meta.url))
 const compactionScenarioDir = join(snapshotsDir, 'compaction-recovery')
@@ -175,6 +177,27 @@ function normalizeGoalTimestamps(value: unknown): unknown {
 function normalizeGoalStream(rawStdout: string, cwd: string): string {
   return parseJsonl(normalizeHeadlessStream(rawStdout, cwd))
     .map(record => JSON.stringify(normalizeGoalTimestamps(record)))
+    .join('\n') + '\n'
+}
+
+/** Replace run-time objective ids and ISO timestamps with stable placeholders. */
+function normalizeObjectiveValues(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value
+      .replace(/objective-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gu, 'objective-<uuid>')
+      .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/u, '<iso>')
+  }
+  if (Array.isArray(value)) return value.map(normalizeObjectiveValues)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeObjectiveValues(item)]))
+  }
+  return value
+}
+
+/** Normalize the objective layer's dynamic values after the shared scrubbers. */
+function normalizeObjectiveStream(rawStdout: string, cwd: string): string {
+  return parseJsonl(normalizeHeadlessStream(rawStdout, cwd))
+    .map(record => JSON.stringify(normalizeObjectiveValues(record)))
     .join('\n') + '\n'
 }
 
@@ -697,6 +720,67 @@ describe('headless stream-json snapshots', () => {
 
     expect(result.stderr).toBe('')
     const normalized = normalizeGoalStream(result.stdout, runCwd)
+    if (refreshing) await writeFile(streamExpected, normalized)
+    expect(normalized).toBe(await readFile(streamExpected, 'utf8'))
+  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+
+  it('replays the cross-session objective layer through the one-shot app', async () => {
+    const prompt = await scenarioPrompt(objectiveScenarioDir, 'objective-tools')
+    const streamExpected = join(objectiveScenarioDir, 'stream-json.expected.jsonl')
+    let runCwd = ''
+    const result = await runLoaderSmoke({
+      label: 'objective tools headless stream-json snapshot',
+      tempDirPrefix: 'headless-snapshot-objective-tools-',
+      binScript,
+      libBinScript: binScript,
+      configPath: objectiveConfigPath,
+      binArgs: [objectiveConfigPath, prompt],
+      tsconfigPath,
+      env: {
+        DSH_SNAPSHOT: 'replay',
+        DSH_SNAPSHOT_FILE: join(objectiveScenarioDir, 'session.jsonl'),
+        DSH_SNAPSHOT_OVERRIDE: join(objectiveScenarioDir, 'replay.override.json'),
+        NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
+      },
+      prepare: (cwd) => { runCwd = cwd },
+      inspect: async (cwd) => {
+        const logs = await persistedLogs(cwd)
+        expect(logs).toHaveLength(1)
+        const records = parseJsonl(logs[0]?.content ?? '')
+        const calls = records.filter(record => record.type === 'tool/call')
+          .map(record => (record.data as JsonObject | undefined)?.name)
+        expect(calls).toEqual(['list_objectives', 'create_objective', 'attach_objective'])
+        const createResult = records.find((record) => {
+          if (record.type !== 'tool/result') return false
+          const data = record.data as JsonObject | undefined
+          const message = data?.message as JsonObject | undefined
+          const source = message?.source as JsonObject | undefined
+          return source?.callId === 'call_objective_create'
+        })
+        const createMessage = ((createResult?.data as JsonObject | undefined)?.message as JsonObject | undefined)
+        const createContent = createMessage?.content as { content?: { text?: unknown }[] }[] | undefined
+        const createText = createContent?.[0]?.content?.[0]?.text
+        expect(typeof createText).toBe('string')
+        const created = JSON.parse(String(createText)) as { objective?: { title?: unknown; status?: unknown } }
+        expect(created.objective).toMatchObject({ title: 'Stabilize rulelift', status: 'active' })
+        const probeResult = records.find((record) => {
+          if (record.type !== 'tool/result') return false
+          const data = record.data as JsonObject | undefined
+          const message = data?.message as JsonObject | undefined
+          const source = message?.source as JsonObject | undefined
+          return source?.callId === 'call_objective_probe'
+        })
+        const probeData = probeResult?.data as JsonObject | undefined
+        const probeContent = (probeData?.message as JsonObject | undefined)?.content as JsonObject[] | undefined
+        expect(probeContent?.[0]?.isError).toBe(true)
+        expect((probeData?.error as JsonObject | undefined)?.code).toBe('OBJECTIVE_NOT_FOUND')
+        // The failed probe mirrors no membership edge onto the session log.
+        expect(records.filter(record => record.type === 'objective/member')).toEqual([])
+      },
+    })
+
+    expect(result.stderr).toBe('')
+    const normalized = normalizeObjectiveStream(result.stdout, runCwd)
     if (refreshing) await writeFile(streamExpected, normalized)
     expect(normalized).toBe(await readFile(streamExpected, 'utf8'))
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)

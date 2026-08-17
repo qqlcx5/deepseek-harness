@@ -1309,6 +1309,22 @@ export interface Config {
 
 Source: [`packages/feedback/message-feedback/src/index.ts:49`](../packages/feedback/message-feedback/src/index.ts)
 
+<a id="deepseek-aidsh-objective-synthesizer"></a>
+
+## `@deepseek-ai/dsh-objective-synthesizer`
+
+Requires: `commands` · `objectives` · `sessionQuery` · `subagents`
+
+```ts config-catalog
+/** Deployment-owned delegation target: the registered subagent provider name. */
+export interface Config {
+  /** Registered `ctx.subagents` provider name that runs the synthesis child. */
+  provider?: string
+}
+```
+
+Source: [`packages/objective/objective-synthesizer/src/index.ts:27`](../packages/objective/objective-synthesizer/src/index.ts)
+
 <a id="deepseek-aidsh-permission-presets"></a>
 
 ## `@deepseek-ai/dsh-permission-presets`

@@ -117,7 +117,7 @@ async delete(id: ObjectiveId): Promise<boolean>
 
 Types: [SessionId](core.md)
 
-Source: [`packages/objective/objective/src/index.ts:212`](../../packages/objective/objective/src/index.ts)
+Source: [`packages/objective/objective/src/index.ts:213`](../../packages/objective/objective/src/index.ts)
 
 <a id="objective-events"></a>
 
@@ -139,5 +139,5 @@ One durable objective mutation committed.
 'objective/changed'(payload: ObjectiveChanged): void
 ```
 
-Source: [`packages/objective/objective/src/index.ts:120`](../../packages/objective/objective/src/index.ts)
+Source: [`packages/objective/objective/src/index.ts:121`](../../packages/objective/objective/src/index.ts)
 <!-- END GENERATED cordis-surface -->

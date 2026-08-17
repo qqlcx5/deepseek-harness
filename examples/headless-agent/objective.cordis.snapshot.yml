@@ -1,0 +1,38 @@
+# Replay counterpart to objective.cordis.yml: the live model is disabled and a
+# scripted replay adapter drives the same composition, so the objective layer
+# boots and behaves keylessly. The scripted attach names an unknown objective
+# id: a successful attach needs the run-time uuid, which a static replay
+# script cannot know, so the snapshot pins the probe path.
+- id: base
+  name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-deepseek
+        name: '@deepseek-ai/dsh-llm-deepseek'
+        disabled: true
+      - insert:
+          - id: storage
+            name: '@deepseek-ai/dsh-storage'
+          - id: storage-json
+            name: '@deepseek-ai/dsh-storage-json'
+            config:
+              root: !!js dshHomePath('storages')
+          - id: storage-domain
+            name: '@deepseek-ai/dsh-storage-domain'
+            config:
+              backend: json
+          - id: commands
+            name: '@deepseek-ai/dsh-commands'
+          - id: objective
+            name: '@deepseek-ai/dsh-objective'
+          - id: tool-objective
+            name: '@deepseek-ai/dsh-tool-objective'
+          - id: command-objective
+            name: '@deepseek-ai/dsh-command-objective'
+          - id: session-query
+            name: '@deepseek-ai/dsh-session-query'
+          - id: objective-synthesizer
+            name: '@deepseek-ai/dsh-objective-synthesizer'
+          - id: llm-replay
+            name: '@deepseek-ai/dsh-llm-replay'

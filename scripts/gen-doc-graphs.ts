@@ -359,7 +359,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'objective',
     title: 'Cross-session objective registry',
     mode: 'core',
-    consumers: ['tool-objective', 'command-objective'],
+    consumers: ['tool-objective', 'command-objective', 'objective-synthesizer'],
     note: 'Durable north-star records with a session member account over the storage domain; the log-only membership mirror keeps one session cold-readable.',
   },
   {

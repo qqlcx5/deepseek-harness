@@ -20,6 +20,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { Context, Service } from '@deepseek-ai/cordis'
+import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { z as zod } from 'zod'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session'
@@ -69,13 +70,13 @@ export type ObjectiveErrorCode =
   | 'OBJECTIVE_INVALID_UPDATE'
 
 /** A rejected objective read or mutation, carrying its stable code. */
-export class ObjectiveError extends Error {
+export class ObjectiveError extends HarnessError {
   /**
    * @param message - Human-readable rejection reason.
    * @param code - Stable error code for routing.
    */
-  constructor(message: string, readonly code: ObjectiveErrorCode) {
-    super(message)
+  constructor(message: string, code: ObjectiveErrorCode) {
+    super(message, code)
     this.name = 'ObjectiveError'
   }
 }

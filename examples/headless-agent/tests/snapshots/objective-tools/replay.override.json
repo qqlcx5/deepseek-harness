@@ -1,0 +1,42 @@
+[
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_objective_list", "name": "list_objectives", "argumentsDelta": "{}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_objective_list", "name": "list_objectives", "arguments": "{}" } },
+      { "type": "usage", "usage": { "inputTokens": 15, "outputTokens": 4 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_objective_create", "name": "create_objective", "argumentsDelta": "{\"title\":\"Stabilize rulelift\",\"north_star\":\"No open P0s\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_objective_create", "name": "create_objective", "arguments": "{\"title\":\"Stabilize rulelift\",\"north_star\":\"No open P0s\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 20, "outputTokens": 8 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_objective_probe", "name": "attach_objective", "argumentsDelta": "{\"objective_id\":\"objective-void\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_objective_probe", "name": "attach_objective", "arguments": "{\"objective_id\":\"objective-void\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 30, "outputTokens": 5 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "OBJECTIVE READY" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "OBJECTIVE READY" } },
+      { "type": "usage", "usage": { "inputTokens": 35, "outputTokens": 2 } },
+      { "type": "finish", "reason": { "kind": "stop" } }
+    ]
+  }
+]
