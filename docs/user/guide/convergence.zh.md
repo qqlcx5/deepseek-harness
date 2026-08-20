@@ -94,7 +94,7 @@ attach 与 detach 幂等；parked 和 closed 目标拒绝新成员。
 ## AI 起草:`/decide-draft`
 
 ```
-/decide-draft <决策id> [目标id]
+/decide-draft <decision id> [objective id]
 ```
 
 读取问题 + 目标的 brief 与成员结论,委派一个一次性子代理,把整张草稿卡(选项、推荐、置信、可逆性建议、反证段)经注册表写回。它绝不替你拍板;输出会给出继续所需的 `/decide show` 与 `/decide choose` 确切命令行。
@@ -106,16 +106,18 @@ attach 与 detach 幂等；parked 和 closed 目标拒绝新成员。
 ## 实践中的一周
 
 ```
-周一  /objective 稳住 rulelift      → 建目标
-     /objective attach <id>         → 当前会话挂入
-     (并行审计会话,各自 attach)
-周三  /synthesize <id>               → 六路审计 → 一段结论 + 3 个问题
-     /decide 修复还是重构?           → 开决策
-     /decide-draft <did> <oid>      → AI 起草带反证段的卡
-     /decide show <did>             → 人读卡,然后 choose
-+3周  /decide                        → 到期未回访提醒出现
-     /decide rev <did> <结果>        → 校准轨迹 +1
+Mon  /objective stabilize rulelift      → create
+     /objective attach <id>             → current session joins
+     (parallel audit sessions, each attaches)
+Wed  /synthesize <id>                   → six audits become one paragraph + 3 questions
+     /decide repair or rewrite?         → open
+     /decide-draft <did> <oid>          → AI drafts the card with counter-evidence
+     /decide show <did>                 → human reads, then chooses
++3w  /decide                            → due-for-review reminder fires
+     /decide rev <did> <outcome>        → calibration trail grows
 ```
+
+(周一建目标并挂入审计会话；周三综述、开决策、AI 起草、人读卡拍板；三周后到期提醒出现，一句话回访。)
 
 ## 数据与排错
 

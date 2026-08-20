@@ -3,4 +3,4 @@
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/user/guide/convergence.md
 convergence.md: f5fc3348fdbc6d5e84c027e2e4b9cee2b51d3fdf
-convergence.zh.md: 4c2797d7c3d6c00ecbd956cacee501c43a6a1b77
+convergence.zh.md: dc023ec82bc00c7cb13f585214b4db9ec2bbcf1f

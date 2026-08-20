@@ -33,7 +33,6 @@ export type {
   ClaimChanged,
   ClaimEdge,
   ClaimEdgeRelation,
-  ClaimId,
   ClaimOperation,
   ClaimSourceKind,
   ClaimStatus,
@@ -172,7 +171,7 @@ export class ClaimRegistry extends Service {
     const domain = await this.ctx.storageDomain.open(claimDomainSpec)
     this.ctx.effect(() => () => domain.close(), 'knowledge.domainClose')
     this.table = domain.table('claims')
-    this.edges = domain.table('claimEdges')
+    this.edges = domain.table('edges')
     this.global = domain.global
     this.state = domain.global.get()
     this.validateStoredState(this.state)

@@ -71,7 +71,7 @@ export type ClaimDomainState = z.infer<typeof claimDomainState>
 
 /**
  * The knowledge domain spec: one `claims` table keyed by {@link ClaimId},
- * one `claimEdges` table keyed by the ordered pair, plus the order
+ * one `edges` table keyed by the ordered pair, plus the order
  * singleton. The registry opens this through `ctx.storage.domain`.
  */
 export const claimDomainSpec = defineDomain({
@@ -83,6 +83,6 @@ export const claimDomainSpec = defineDomain({
   },
   tables: {
     claims: domainTable<ClaimId, ClaimRecord>(claimRecord),
-    claimEdges: domainTable<string, ClaimEdgeRecord>(claimEdgeRecord),
+    edges: domainTable<string, ClaimEdgeRecord>(claimEdgeRecord),
   },
 })
