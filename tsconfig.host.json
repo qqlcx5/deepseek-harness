@@ -176,6 +176,7 @@
     { "path": "./packages/decision/decision" },
     { "path": "./packages/decision/command-decision" },
     { "path": "./packages/decision/decision-drafter" },
+    { "path": "./packages/knowledge/knowledge" },
     { "path": "./packages/feedback/command-feedback" },
     { "path": "./packages/schedule/schedule" },
     { "path": "./packages/context/time-context" },
