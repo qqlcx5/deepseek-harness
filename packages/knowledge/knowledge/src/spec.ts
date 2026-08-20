@@ -53,7 +53,11 @@ export const claimEdgeRecord = z.object({
 /** One stored edge record. */
 export type ClaimEdgeRecord = z.infer<typeof claimEdgeRecord>
 
-/** Edge table key: the ordered pair, `src->dst`. */
+/** Edge table key: the ordered pair, `src->dst`.
+ * @param src - Source claim id.
+ * @param dst - Destination claim id.
+ * @returns the deterministic pair key.
+ */
 export function claimEdgeKey(src: ClaimId, dst: ClaimId): string {
   return `${String(src)}->${String(dst)}`
 }

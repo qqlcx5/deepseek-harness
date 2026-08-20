@@ -379,6 +379,66 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'claims',
+    summary: 'Claim registry (`ctx.claims`) over the storage domain form.',
+    description: 'Claim registry (`ctx.claims`) over the storage domain form. Startup validates that registry order and the claims table agree exactly; edge rows survive the deletion of the claims they mention (an edge naming an absent claim is inert data, not corruption). Every mutation runs on a serialized write chain and publishes `claim/changed` only after the durable write succeeds.',
+    methods: [
+      {
+        signature: 'async create(request: CreateClaimRequest): Promise<ClaimView>',
+        description: 'Create an active claim with mandatory provenance and prepend it to the durable registry order.',
+        parameters: [{ name: 'request', description: 'The proposition, its source, and optional context.' }],
+        returns: 'the created view.',
+      },
+      {
+        signature: 'get(id: ClaimId): ClaimView | undefined',
+        description: 'Look up a claim by id.',
+        parameters: [{ name: 'id', description: 'Claim id.' }],
+        returns: 'the detached view, or `undefined` when unknown.',
+      },
+      {
+        signature: 'list(): ClaimView[]',
+        description: 'Synchronous claim projection in durable registry order. Performs no persistence reads.',
+        parameters: [],
+        returns: 'a fresh ordered array of detached views.',
+      },
+      {
+        signature: 'listActive(): ClaimView[]',
+        description: 'The active (non-retired, non-promoted) claims in registry order.',
+        parameters: [],
+        returns: 'every claim whose status is `active`.',
+      },
+      {
+        signature: 'async link(src: ClaimId, dst: ClaimId, relation: ClaimEdgeRelation): Promise<void>',
+        description: 'Link two claims with one relation. The ordered pair carries at most one relation: re-linking the same pair replaces it. Both claims must exist; a self-edge rejects.',
+        parameters: [{ name: 'src', description: 'Source claim of the relation.' }, { name: 'dst', description: 'Destination claim of the relation.' }, { name: 'relation', description: 'The relation from src to dst.' }],
+      },
+      {
+        signature: 'edgesOf(id: ClaimId): ClaimEdge[]',
+        description: 'Every edge touching one claim, in registry order: outgoing and incoming.',
+        parameters: [{ name: 'id', description: 'Claim id.' }],
+        returns: 'the edges whose src or dst is the claim.',
+      },
+      {
+        signature: 'async promote(id: ClaimId, corroboratedBy: readonly string[]): Promise<ClaimView>',
+        description: 'Promote a claim to persistent knowledge. Corroboration is judged at canonical document granularity: the claim\'s own source plus the supplied corroborating locations must reduce to at least two distinct document roots — parallel audits sharing one upstream artifact never count twice. Only an active claim promotes; a promoted claim is immutable (demotion is a retire).',
+        parameters: [{ name: 'id', description: 'Claim id.' }, { name: 'corroboratedBy', description: 'Corroborating source locations.' }],
+        returns: 'the promoted view.',
+      },
+      {
+        signature: 'async retire(id: ClaimId): Promise<ClaimView>',
+        description: 'Retire a claim: it stays readable with its trail but leaves the active set. Idempotent for an already-retired claim.',
+        parameters: [{ name: 'id', description: 'Claim id.' }],
+        returns: 'the retired view.',
+      },
+      {
+        signature: 'async delete(id: ClaimId): Promise<boolean>',
+        description: 'Delete one claim record while retaining every edge mentioning it (an edge naming an absent claim is inert). Idempotent for an unknown id.',
+        parameters: [{ name: 'id', description: 'Claim to remove.' }],
+        returns: '`true` when a record was deleted, `false` when it was unknown.',
+      },
+    ],
+  },
+  {
     key: 'clientModules',
     summary: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index tap.',
     description: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index tap. Construction runs the activation scan synchronously — a malformed declaration or missing bundle among the already-loaded entries aggregates into one loud throw (FAILED fiber; the boot activation audit reports it).',
@@ -2412,6 +2472,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'req', description: 'the pending decision (agent, tool identity, reason, signal).' }],
   },
   {
+    name: 'claim/changed',
+    mode: 'emit',
+    signature: '\'claim/changed\'(payload: ClaimChanged): void',
+    summary: 'One durable claim mutation committed.',
+    description: 'One durable claim mutation committed.',
+    parameters: [{ name: 'payload', description: '.claim - post-mutation view; absent for a delete.' }],
+  },
+  {
     name: 'commands/change',
     mode: 'emit',
     signature: '\'commands/change\'(): void',
@@ -2888,6 +2956,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CancelOptions {\n    keepInbox?: boolean | undefined;\n}',
   },
   {
+    name: 'ClaimChanged',
+    declaration: 'export interface ClaimChanged {\n    readonly operation: ClaimOperation;\n    readonly claim?: ClaimView;\n}',
+  },
+  {
+    name: 'ClaimEdge',
+    declaration: 'export interface ClaimEdge {\n    readonly src: ClaimId;\n    readonly dst: ClaimId;\n    readonly relation: ClaimEdgeRelation;\n}',
+  },
+  {
+    name: 'ClaimEdgeRelation',
+    declaration: 'export type ClaimEdgeRelation = \'supports\' | \'refines\' | \'supersedes\' | \'contradicts\';',
+  },
+  {
+    name: 'ClaimOperation',
+    declaration: 'export type ClaimOperation = \'create\' | \'link\' | \'promote\' | \'retire\' | \'delete\';',
+  },
+  {
+    name: 'ClaimSourceKind',
+    declaration: 'export type ClaimSourceKind = \'session\' | \'artifact\' | \'memory\' | \'external\';',
+  },
+  {
+    name: 'ClaimStatus',
+    declaration: 'export type ClaimStatus = \'active\' | \'retired\' | \'promoted\';',
+  },
+  {
+    name: 'ClaimView',
+    declaration: 'export interface ClaimView {\n    readonly id: ClaimId;\n    readonly proposition: string;\n    readonly sourceKind: ClaimSourceKind;\n    readonly sourceUri: string;\n    readonly sourceSession?: string;\n    readonly sourceAnchor?: string;\n    readonly confidence?: number;\n    readonly validUntil?: string;\n    readonly status: ClaimStatus;\n    readonly objectiveId?: ObjectiveId;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+  },
+  {
     name: 'ClientResponse',
     declaration: 'export interface ClientResponse {\n    type: \'client-response\';\n    rpcId: RpcId;\n    result: RpcResult<unknown>;\n}',
   },
@@ -3050,6 +3146,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CreateAgentOptions',
     declaration: 'export interface CreateAgentOptions {\n    readonly sessionId: SessionId;\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly seedLength?: number;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n    readonly seed?: readonly SessionEvent[];\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'CreateClaimRequest',
+    declaration: 'export interface CreateClaimRequest {\n    readonly proposition: string;\n    readonly sourceKind: ClaimSourceKind;\n    readonly sourceUri: string;\n    readonly sourceSession?: string;\n    readonly sourceAnchor?: string;\n    readonly confidence?: number;\n    readonly validUntil?: string;\n    readonly objectiveId?: ObjectiveId;\n}',
   },
   {
     name: 'CreateDecisionRequest',

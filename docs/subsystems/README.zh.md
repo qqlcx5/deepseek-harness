@@ -14,6 +14,8 @@
 | [goal.md](goal.md) | 持久 goal 标识、生命周期快照、激活、变更记录与 Round 归属 |
 | [objective.md](objective.md) | 跨会话目标记录、会话归属、日志镜像与缓存综述 |
 | [decision.md](decision.md) | 跨会话决策记录、选项卡与反证段、可逆性分诊与校准轨迹 |
+| [knowledge.md](knowledge.md) | 带来源的原子命题、边图与文档粒度晋升 |
+| [knowledge.md](knowledge.md) | 跨会话断言、来源与边图、不同源晋升 |
 | [schedule.md](schedule.md) | 仅限 Session 内的提醒记录、持久转换、活动视图与普通对话交付 |
 | [commands.md](commands.md) | 人类命令注册表服务：定义、适配器发现、直接调用、结果与解析视图 |
 | [session.md](session.md) | 完整的 `SessionEventMap` 变体目录、`TurnTrigger`/`TurnEndReason`、`deriveMessages()`、执行封闭与独立事件 |

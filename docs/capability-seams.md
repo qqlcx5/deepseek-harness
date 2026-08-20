@@ -109,6 +109,8 @@ flowchart LR
   pkg_agent_spine_demo["agent-spine-demo"]
   pkg_goal["goal"]
   svc_goals["ctx.goals<br/>Same-session goal domain"]
+  pkg_knowledge["knowledge"]
+  svc_claims["ctx.claims<br/>Cross-session claim registry"]
   pkg_decision["decision"]
   svc_decisions["ctx.decisions<br/>Cross-session decision registry"]
   pkg_command_decision["command-decision"]
@@ -237,6 +239,7 @@ flowchart LR
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
   pkg_jobs_local --> svc_jobs
+  pkg_knowledge --> svc_claims
   pkg_llm --> svc_llm
   pkg_llm_deepseek --> svc_llm
   pkg_llm_pi_ai --> svc_llm
@@ -459,6 +462,7 @@ flowchart LR
 | `ctx.agentDefaultModel` | `core` | [`agent-default-model`](../packages/core/agent-default-model) | - | [`headless`](../packages/bundle/headless), [`host-apiproxy`](../packages/host/apiproxy) | - | Layers the default ModelSelection through settings so direct and Host-backed Agent entry points share one state owner. |
 | `ctx.agentLoop` | `bundle` | [`agent-loop`](../packages/core/agent-loop) | - | [`agent-spine-demo`](../packages/examples/agent-spine-demo) | - | The one concrete loop plugin; extension packages depend on dsh-agent events and services, not on this package. |
 | `ctx.goals` | `core` | [`goal`](../packages/goal/goal) | - | - | - | Folds revisioned objective state from the session log and keeps live continuation activation process-local. |
+| `ctx.claims` | `core` | [`knowledge`](../packages/knowledge/knowledge) | - | - | - | Atomic propositions with provenance and confidence; edges link supports/refines/supersedes/contradicts, and promotion demands distinct-source corroboration. |
 | `ctx.decisions` | `core` | [`decision`](../packages/decision/decision) | - | [`command-decision`](../packages/decision/command-decision), [`decision-drafter`](../packages/decision/decision-drafter) | - | Strategic decisions as first-class objects: option card with evidence, mandatory counter-evidence, reversibility triage, and the calibration trail of frozen predictions against one-line outcomes. |
 | `ctx.objectives` | `core` | [`objective`](../packages/objective/objective) | - | [`tool-objective`](../packages/objective/tool-objective), [`command-objective`](../packages/objective/command-objective), [`objective-synthesizer`](../packages/objective/objective-synthesizer) | - | Durable north-star records with a session member account over the storage domain; the log-only membership mirror keeps one session cold-readable. |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | Owns one shared E2B SDK handle, remote working directory, and final sandbox disposition so both fundamental E2B providers inhabit the same Linux runtime. |

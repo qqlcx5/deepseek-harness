@@ -355,6 +355,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Folds revisioned objective state from the session log and keeps live continuation activation process-local.',
   },
   {
+    key: 'claims',
+    pkg: 'knowledge',
+    title: 'Cross-session claim registry',
+    mode: 'core',
+    note: 'Atomic propositions with provenance and confidence; edges link supports/refines/supersedes/contradicts, and promotion demands distinct-source corroboration.',
+  },
+  {
     key: 'decisions',
     pkg: 'decision',
     title: 'Cross-session decision registry',

@@ -128,6 +128,13 @@ describe('knowledge registry', () => {
     // Re-linking the same pair replaces the relation.
     await registry.link(a.id, b.id, 'refines')
     expect(registry.edgesOf(a.id)[0]?.relation).toBe('refines')
+
+    // An edge between two other claims never surfaces.
+    const c = await registry.create({ proposition: 'c', sourceKind: 'session', sourceUri: 's://c' })
+    const d = await registry.create({ proposition: 'd', sourceKind: 'session', sourceUri: 's://d' })
+    await registry.link(c.id, d.id, 'supports')
+    expect(registry.edgesOf(a.id)).toHaveLength(1)
+    expect(registry.edgesOf(d.id)).toEqual([{ src: c.id, dst: d.id, relation: 'supports' }])
   })
 
   it('promotes only with two distinct document roots and treats fragments as one source', async () => {
@@ -189,10 +196,17 @@ describe('knowledge registry', () => {
   it('restores from a previous medium and fails loud on divergence', async () => {
     const pool = new MemoryMediaPool()
     const first = await harness({ pool })
-    const claim = await first.registry.create({ proposition: 'durable', sourceKind: 'session', sourceUri: 's://d' })
+    const claim = await first.registry.create({
+      proposition: 'durable',
+      sourceKind: 'session',
+      sourceUri: 's://d',
+      objectiveId: ObjectiveId('objective-linked'),
+    })
     await first.fiber.dispose()
     const second = await harness({ pool })
-    expect(second.registry.get(claim.id)?.proposition).toBe('durable')
+    const restored = second.registry.get(claim.id)
+    expect(restored?.proposition).toBe('durable')
+    expect(restored?.objectiveId).toBe(ObjectiveId('objective-linked'))
 
     const orphanCtx = new Context()
     await orphanCtx.plugin(Storage)
@@ -204,6 +218,17 @@ describe('knowledge registry', () => {
     await domain.table('claims').put(ClaimId('claim-orphan'), record())
     await domain.close()
     await expect(orphanCtx.plugin(ClaimRegistry)).rejects.toThrow(/absent from registry order/)
+
+    const ghostCtx = new Context()
+    await ghostCtx.plugin(Storage)
+    ghostCtx.storage.backend.register('memory', new MemoryStorageBackend(new MemoryMediaPool()))
+    const ghostFacility = new DomainFacility(ghostCtx, { backend: 'memory', routes: {} })
+    ghostCtx.storage.mount('domain', ghostFacility)
+    ghostCtx.provide('storageDomain', ghostFacility)
+    const ghostDomain = await ghostFacility.open(claimDomainSpec)
+    await ghostDomain.global.set({ claimIds: [ClaimId('claim-ghost')] })
+    await ghostDomain.close()
+    await expect(ghostCtx.plugin(ClaimRegistry)).rejects.toThrow(/references missing claim/)
 
     const repeatCtx = new Context()
     await repeatCtx.plugin(Storage)
@@ -249,6 +274,18 @@ describe('knowledge registry', () => {
     const claim = await registry.create({ proposition: 'delete rollback', sourceKind: 'session', sourceUri: 'x' })
     await expect(registry.delete(claim.id)).rejects.toThrow('injected deleteRecord failure')
     expect(registry.get(claim.id)?.proposition).toBe('delete rollback')
+
+    // A create whose rollback also fails leaves the orphan and reports both.
+    const doomedTwice = new MemoryMediaPool()
+    const twin = await harness({
+      pool: doomedTwice,
+      backend: flakyBackend(new MemoryStorageBackend(doomedTwice), [
+        { op: 'setGlobal', at: 1 },
+        { op: 'deleteRecord', at: 1 },
+      ]),
+    })
+    await expect(twin.registry.create({ proposition: 'doomed twice', sourceKind: 'session', sourceUri: 'x' }))
+      .rejects.toThrow(AggregateError)
 
     const doomed = new MemoryMediaPool()
     const both = await harness({

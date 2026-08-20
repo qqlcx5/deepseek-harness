@@ -111,6 +111,8 @@ flowchart LR
   pkg_agent_spine_demo["agent-spine-demo"]
   pkg_goal["goal"]
   svc_goals["ctx.goals<br/>Same-session goal domain"]
+  pkg_knowledge["knowledge"]
+  svc_claims["ctx.claims<br/>Cross-session claim registry"]
   pkg_decision["decision"]
   svc_decisions["ctx.decisions<br/>Cross-session decision registry"]
   pkg_command_decision["command-decision"]
@@ -239,6 +241,7 @@ flowchart LR
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
   pkg_jobs_local --> svc_jobs
+  pkg_knowledge --> svc_claims
   pkg_llm --> svc_llm
   pkg_llm_deepseek --> svc_llm
   pkg_llm_pi_ai --> svc_llm
@@ -461,6 +464,7 @@ flowchart LR
 | `ctx.agentDefaultModel` | `core` | [`agent-default-model`](../packages/core/agent-default-model) | - | [`headless`](../packages/bundle/headless), [`host-apiproxy`](../packages/host/apiproxy) | - | 通过 settings 分层默认 `ModelSelection`，让直接入口与 Host 支撑的 Agent 入口共享同一个状态所有者。 |
 | `ctx.agentLoop` | `bundle` | [`agent-loop`](../packages/core/agent-loop) | - | [`agent-spine-demo`](../packages/examples/agent-spine-demo) | - | 唯一的具体循环插件；扩展包依赖 dsh-agent 的事件和服务，而不依赖此包。 |
 | `ctx.goals` | `core` | [`goal`](../packages/goal/goal) | - | - | - | 从会话日志折叠带修订版本的目标状态，并将实时延续激活保留在进程本地。 |
+| `ctx.claims` | `core` | [`knowledge`](../packages/knowledge/knowledge) | - | - | - | 带来源与置信度的原子命题;边图链接 supports/refines/supersedes/contradicts,晋升要求不同证据源交叉印证。 |
 | `ctx.decisions` | `core` | [`decision`](../packages/decision/decision) | - | [`command-decision`](../packages/decision/command-decision), [`decision-drafter`](../packages/decision/decision-drafter) | - | 把战略决策作为一等对象:带证据的选项卡、必填反证段、可逆性分诊,以及冻结预测对一句话结果的校准轨迹。 |
 | `ctx.objectives` | `core` | [`objective`](../packages/objective/objective) | - | [`tool-objective`](../packages/objective/tool-objective), [`command-objective`](../packages/objective/command-objective), [`objective-synthesizer`](../packages/objective/objective-synthesizer) | - | 基于 storage domain 的持久北极星记录与成员会话账本；log-only 归属镜像保持单个会话可冷读。 |
 | `ctx.e2b` | `core` | [`e2b`](../packages/e2b/e2b) | - | [`fs-e2b`](../packages/e2b/fs-e2b), [`subprocess-e2b`](../packages/e2b/subprocess-e2b) | - | 拥有一个共享的 E2B SDK 句柄、远程工作目录和最终沙箱处置，使两个基础 E2B 提供方处于同一个 Linux 运行时中。 |
