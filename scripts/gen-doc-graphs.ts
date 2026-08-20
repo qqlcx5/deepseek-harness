@@ -355,6 +355,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Folds revisioned objective state from the session log and keeps live continuation activation process-local.',
   },
   {
+    key: 'decisions',
+    pkg: 'decision',
+    title: 'Cross-session decision registry',
+    mode: 'core',
+    consumers: ['command-decision', 'decision-drafter'],
+    note: 'Strategic decisions as first-class objects: option card with evidence, mandatory counter-evidence, reversibility triage, and the calibration trail of frozen predictions against one-line outcomes.',
+  },
+  {
     key: 'objectives',
     pkg: 'objective',
     title: 'Cross-session objective registry',

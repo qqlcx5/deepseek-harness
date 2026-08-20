@@ -301,6 +301,7 @@ const subsystemGroups = [
     ['commands.md', '命令', 'Human commands'],
     ['goal.md', '目标', 'Goals'],
     ['objective.md', '跨会话目标', 'Objectives'],
+    ['decision.md', '决策', 'Decisions'],
     ['schedule.md', '定时提醒', 'Scheduled reminders'],
   ]],
   ['平台与接入', 'Platform and access', [

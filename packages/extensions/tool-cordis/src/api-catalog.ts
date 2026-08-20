@@ -526,6 +526,73 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'decisions',
+    summary: 'Decision registry (`ctx.decisions`) over the storage domain form.',
+    description: 'Decision registry (`ctx.decisions`) over the storage domain form. Startup validates that registry order and the decisions table agree exactly; review rows are calibration history and may outlive the decision they reviewed (a deleted decision\'s reviews stay readable). Every mutation runs on a serialized write chain and publishes `decision/changed` only after the durable write succeeds.',
+    methods: [
+      {
+        signature: 'async create(request: CreateDecisionRequest): Promise<DecisionView>',
+        description: 'Create an open decision and prepend it to the durable registry order.',
+        parameters: [{ name: 'request', description: 'The question plus optional initial card, triage, and due date.' }],
+        returns: 'the created view.',
+      },
+      {
+        signature: 'get(id: DecisionId): DecisionView | undefined',
+        description: 'Look up a decision by id.',
+        parameters: [{ name: 'id', description: 'Decision id.' }],
+        returns: 'the detached view, or `undefined` when unknown.',
+      },
+      {
+        signature: 'list(): DecisionView[]',
+        description: 'Synchronous decision projection in durable registry order. Performs no persistence reads.',
+        parameters: [],
+        returns: 'a fresh ordered array of detached views.',
+      },
+      {
+        signature: 'listOpen(): DecisionView[]',
+        description: 'The open decisions in durable registry order.',
+        parameters: [],
+        returns: 'every decision whose status is `open`.',
+      },
+      {
+        signature: 'async update(id: DecisionId, request: UpdateDecisionRequest): Promise<DecisionView>',
+        description: 'Replace draft fields on an open decision: question, option card, counter-evidence, recommendation, rationale, confidence, triage, and/or due date. Only an open decision accepts a draft update; a decided or superseded one is history.',
+        parameters: [{ name: 'id', description: 'Decision id.' }, { name: 'request', description: 'At least one replacement field; `null` clears the nullable ones.' }],
+        returns: 'the updated view.',
+      },
+      {
+        signature: 'async decide(id: DecisionId, chosen: string, options: { confidence?: number } = {}): Promise<DecisionView>',
+        description: 'Make the decision: choose one option, freeze the confidence snapshot the calibration trail reads, and stamp the instant. With a non-empty option card the chosen label must name one of its options.',
+        parameters: [{ name: 'id', description: 'Decision id.' }, { name: 'chosen', description: 'Chosen option label.' }, { name: 'options', description: 'Optional override of the confidence frozen at decide time.' }],
+        returns: 'the decided view.',
+      },
+      {
+        signature: 'async supersede(id: DecisionId): Promise<DecisionView>',
+        description: 'Mark a decision superseded: kept for the trail, no longer the answer to its question. Idempotent for an already-superseded decision.',
+        parameters: [{ name: 'id', description: 'Decision id.' }],
+        returns: 'the superseded view.',
+      },
+      {
+        signature: 'async recordReview(id: DecisionId, actualOutcome: string, options: { calibrationNote?: string } = {}): Promise<DecisionReview>',
+        description: 'Record one calibration data point: the one-line actual outcome against the decide-time prediction. Requires a decided decision; repeat reviews of the same decision are allowed (the latest is the current outcome).',
+        parameters: [{ name: 'id', description: 'Decision id.' }, { name: 'actualOutcome', description: 'One-line actual outcome.' }, { name: 'options', description: 'Optional calibration note.' }],
+        returns: 'the stored review.',
+      },
+      {
+        signature: 'reviewsOf(id: DecisionId): DecisionReview[]',
+        description: 'The review trail of one decision, oldest first.',
+        parameters: [{ name: 'id', description: 'Decision id.' }],
+        returns: 'every recorded review, including those of a deleted decision.',
+      },
+      {
+        signature: 'async delete(id: DecisionId): Promise<boolean>',
+        description: 'Delete one decision record while retaining its review trail (calibration history outlives the decision it measured). Idempotent for an unknown id.',
+        parameters: [{ name: 'id', description: 'Decision to remove.' }],
+        returns: '`true` when a record was deleted, `false` when it was unknown.',
+      },
+    ],
+  },
+  {
     key: 'directoryPicker',
     summary: 'Abstract directory-picking service.',
     description: 'Abstract directory-picking service. Subclass, implement `capability()`, and load the subclass as a plugin — it registers as `ctx.directoryPicker` (one implementation per context; loading a second throws, cordis\' standard duplicate-service behavior). The capability object must be stable for the service lifetime: consumers may capture it across calls.',
@@ -2403,6 +2470,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'ref', description: 'the reference whose stored value changed.' }],
   },
   {
+    name: 'decision/changed',
+    mode: 'emit',
+    signature: '\'decision/changed\'(payload: DecisionChanged): void',
+    summary: 'One durable decision mutation committed.',
+    description: 'One durable decision mutation committed.',
+    parameters: [{ name: 'payload', description: '.decision - post-mutation view; absent for a delete.' }],
+  },
+  {
     name: 'domain/changed',
     mode: 'emit',
     signature: '\'domain/changed\'(change: DomainChanged): void',
@@ -2971,6 +3046,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CreateAgentOptions {\n    readonly sessionId: SessionId;\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly seedLength?: number;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n    readonly seed?: readonly SessionEvent[];\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
   },
   {
+    name: 'CreateDecisionRequest',
+    declaration: 'export interface CreateDecisionRequest {\n    readonly question: string;\n    readonly objectiveId?: ObjectiveId;\n    readonly options?: readonly DecisionOption[];\n    readonly reversibility?: Reversibility;\n    readonly dueAt?: string;\n}',
+  },
+  {
     name: 'CreateGoalRequest',
     declaration: 'export interface CreateGoalRequest {\n    readonly objective: string;\n    readonly maxGoalRounds?: number;\n}',
   },
@@ -2993,6 +3072,30 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CredentialRef',
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
+  },
+  {
+    name: 'DecisionChanged',
+    declaration: 'export interface DecisionChanged {\n    readonly operation: DecisionOperation;\n    readonly decision?: DecisionView;\n}',
+  },
+  {
+    name: 'DecisionOperation',
+    declaration: 'export type DecisionOperation = \'create\' | \'update\' | \'decide\' | \'supersede\' | \'review\' | \'delete\';',
+  },
+  {
+    name: 'DecisionOption',
+    declaration: 'export interface DecisionOption {\n    readonly label: string;\n    readonly evidence: string;\n    readonly cost?: string;\n    readonly risk?: string;\n}',
+  },
+  {
+    name: 'DecisionReview',
+    declaration: 'export interface DecisionReview {\n    readonly id: DecisionId;\n    readonly decisionId: DecisionId;\n    readonly reviewedAt: string;\n    readonly predictedConfidence?: number;\n    readonly actualOutcome: string;\n    readonly calibrationNote?: string;\n}',
+  },
+  {
+    name: 'DecisionStatus',
+    declaration: 'export type DecisionStatus = \'open\' | \'decided\' | \'superseded\';',
+  },
+  {
+    name: 'DecisionView',
+    declaration: 'export interface DecisionView {\n    readonly id: DecisionId;\n    readonly question: string;\n    readonly objectiveId?: ObjectiveId;\n    readonly options: readonly DecisionOption[];\n    readonly counterEvidence: string;\n    readonly recommendation?: string;\n    readonly rationale?: string;\n    readonly confidence?: number;\n    readonly reversibility: Reversibility;\n    readonly status: DecisionStatus;\n    readonly chosen?: string;\n    readonly predictedConfidence?: number;\n    readonly decidedAt?: string;\n    readonly dueAt?: string;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
   },
   {
     name: 'DiffCallView',
@@ -3713,6 +3816,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'Reversibility',
+    declaration: 'export type Reversibility = \'reversible\' | \'costly\' | \'irreversible\';',
   },
   {
     name: 'RpcError',
@@ -4609,6 +4716,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TypertTypeModel',
     declaration: 'export interface TypertTypeModel {\n    readonly name: string;\n    readonly declaration: string;\n}',
+  },
+  {
+    name: 'UpdateDecisionRequest',
+    declaration: 'export interface UpdateDecisionRequest {\n    readonly question?: string;\n    readonly options?: readonly DecisionOption[];\n    readonly counterEvidence?: string;\n    readonly recommendation?: string | null;\n    readonly rationale?: string | null;\n    readonly confidence?: number | null;\n    readonly reversibility?: Reversibility;\n    readonly dueAt?: string | null;\n}',
   },
   {
     name: 'UpdateObjectiveRequest',

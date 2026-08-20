@@ -47,7 +47,10 @@ export interface ResolvedConfig {
   readonly messageCapChars: number
 }
 
-/** Validate config even when apply is called directly outside Loader normalization. */
+/** Validate config even when apply is called directly outside Loader normalization.
+ * @param config - Raw plugin config.
+ * @returns the fully materialized synthesis policy.
+ */
 export function resolveConfig(config: Config): ResolvedConfig {
   const provider = config.provider ?? 'spawn'
   const materialTail = config.materialTail ?? 3
@@ -184,6 +187,7 @@ function renderBriefText(output: SynthesisOutput): string {
  * seam (live-preferred; a session that fails replay rejects the whole run).
  * @param ctx - Context carrying `ctx.sessionQuery`.
  * @param objective - The objective whose members are read.
+ * @param limits - Material limits: the trailing-message count and per-message cap.
  * @returns one material block per member, in the objective's member order.
  */
 export async function collectMemberMaterial(
@@ -202,7 +206,7 @@ export async function collectMemberMaterial(
 /**
  * Run one synthesis delegation for an objective and store its brief.
  * @param ctx - Context carrying `ctx.objectives`, `ctx.sessionQuery`, and `ctx.subagents`.
- * @param provider - Registered subagent provider name.
+ * @param resolved - The materialized synthesis policy (provider and material limits).
  * @param parent - Live agent whose context anchors the delegation.
  * @param objectiveId - The objective to synthesize.
  * @param signal - Cancellation channel for the child run.

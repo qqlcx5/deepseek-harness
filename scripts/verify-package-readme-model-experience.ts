@@ -56,6 +56,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/preset/agent-presets': { kind: 'indirect', reason: 'The mount installs a preset\'s own plugins, which own every model-facing registration it makes visible.' },
   'packages/typert/registry': { kind: 'none', reason: 'Runtime type registry; consumers (cordis_inspect, wire faces, gates) own any model-visible projection of registry contents.' },
   'packages/typert/loader': { kind: 'none', reason: 'Loader integration only registers generated artifacts; consumers own any model-visible projection.' },
+  'packages/decision/command-decision': { kind: 'none', reason: 'One human command over ctx.decisions; it registers no prompt, tool, or session event, and a command adapter that logs the exchange owns its own model experience.' },
+  'packages/decision/decision': { kind: 'none', reason: 'Registry over the storage domain; decisions are cross-session data that never enter prompt, tool schema, or session event, and a consumer surfacing a card owns its own model experience.' },
   'packages/objective/objective': { kind: 'none', reason: 'Registry over the storage domain; the log-only membership event and the domain brief never enter model context, and a consumer that injects the brief owns its own model experience.' },
   'packages/objective/command-objective': { kind: 'none', reason: 'One human command over ctx.objectives; it registers no prompt, tool, or session event, and a command adapter that logs the exchange owns its own model experience.' },
   'packages/e2b/e2b': { kind: 'none', reason: 'The shared remote-runtime owner registers no model context; provider adapters and consumers own rendered effects.' },

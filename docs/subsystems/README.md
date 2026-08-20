@@ -13,6 +13,7 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [typert.md](typert.md) | Remote invocation descriptors, lookup/Context declarations, Typert registries, and the Host Gateway/Client API boundaries |
 | [goal.md](goal.md) | persisted goal identity, lifecycle snapshots, activation, change records, and round attribution |
 | [objective.md](objective.md) | cross-session objective records, session membership, the log mirror, and the cached synthesis brief |
+| [decision.md](decision.md) | cross-session decision records, option card with counter-evidence, reversibility triage, and the calibration trail |
 | [schedule.md](schedule.md) | Session-local reminder records, durable transitions, active views, and ordinary-conversation delivery |
 | [commands.md](commands.md) | the human-command registry service: definitions, adapter discovery, direct invocation, results, and parsing views |
 | [session.md](session.md) | the full `SessionEventMap` variant catalog, `TurnTrigger`/`TurnEndReason`, `deriveMessages()`, execution enclosure, and standalone events |
