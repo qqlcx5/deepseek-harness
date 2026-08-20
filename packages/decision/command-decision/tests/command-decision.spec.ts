@@ -289,7 +289,7 @@ describe('/decide human command', () => {
     const first = await run(test, ` choose ${String(bare.id).slice(-8)} go`)
     expect(first.kind).toBe('error')
     expect(first.text).toContain('Counter-evidence: (none recorded)')
-    const fresh = await test.ctx.decisions.get(bare.id)
+    const fresh = test.ctx.decisions.get(bare.id)
     const confirmed = await run(test, ` choose ${String(bare.id).slice(-8)} go confirm ${fresh?.updatedAt}`)
     expect(confirmed.kind).toBe('success')
   })

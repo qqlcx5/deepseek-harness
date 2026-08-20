@@ -561,9 +561,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the updated view.',
       },
       {
-        signature: 'async decide(id: DecisionId, chosen: string, options: { confidence?: number } = {}): Promise<DecisionView>',
-        description: 'Make the decision: choose one option, freeze the confidence snapshot the calibration trail reads, and stamp the instant. With a non-empty option card the chosen label must name one of its options.',
-        parameters: [{ name: 'id', description: 'Decision id.' }, { name: 'chosen', description: 'Chosen option label.' }, { name: 'options', description: 'Optional override of the confidence frozen at decide time.' }],
+        signature: 'async decide( id: DecisionId, chosen: string, options: { confidence?: number; confirm?: boolean; expectedUpdatedAt?: string } = {}, ): Promise<DecisionView>',
+        description: 'Make the decision: choose one option, freeze the confidence snapshot the calibration trail reads, and stamp the instant. With a non-empty option card the chosen label must name one of its options. An irreversible decision requires an explicit confirmation pass (`confirm: true`): the first attempt rejects with `DECISION_IRREVERSIBLE_CONFIRM` so the caller surfaces the counter-evidence and cited sources before the second pass. An `expectedUpdatedAt` fence rejects with `DECISION_STALE_CARD` when the card changed since the caller read it — approving a card the human never saw must be impossible.',
+        parameters: [{ name: 'id', description: 'Decision id.' }, { name: 'chosen', description: 'Chosen option label.' }, { name: 'options', description: 'Optional confidence override, irreversible confirmation, and the card stamp the caller read.' }],
         returns: 'the decided view.',
       },
       {
@@ -583,6 +583,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'The review trail of one decision, oldest first.',
         parameters: [{ name: 'id', description: 'Decision id.' }],
         returns: 'every recorded review, including those of a deleted decision.',
+      },
+      {
+        signature: 'reviewsByObjective(objectiveId: ObjectiveId): DecisionReview[]',
+        description: 'The calibration trail aggregated by objective: every review whose decision carried this objective, oldest first, including reviews of decisions that were later deleted (the review row snapshots the objective at record time). Calibration reads this, not per-decision queries: the unit a human calibrates is a topic, not one card.',
+        parameters: [{ name: 'objectiveId', description: 'The objective to aggregate under.' }],
+        returns: 'every matching review, oldest first.',
       },
       {
         signature: 'async delete(id: DecisionId): Promise<boolean>',
@@ -3087,7 +3093,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DecisionReview',
-    declaration: 'export interface DecisionReview {\n    readonly id: DecisionId;\n    readonly decisionId: DecisionId;\n    readonly reviewedAt: string;\n    readonly predictedConfidence?: number;\n    readonly actualOutcome: string;\n    readonly calibrationNote?: string;\n}',
+    declaration: 'export interface DecisionReview {\n    readonly id: DecisionId;\n    readonly decisionId: DecisionId;\n    readonly objectiveId?: ObjectiveId;\n    readonly reviewedAt: string;\n    readonly predictedConfidence?: number;\n    readonly actualOutcome: string;\n    readonly calibrationNote?: string;\n}',
   },
   {
     name: 'DecisionStatus',

@@ -1,0 +1,28 @@
+# Decision-layer smoke composition: the storage domain carries both the
+# objective and decision groups, and the human command surface drives the
+# full lifecycle without any model call — the smoke exercises the composed
+# services, not a turn.
+- id: storage
+  name: '@deepseek-ai/dsh-storage'
+
+- id: storage-json
+  name: '@deepseek-ai/dsh-storage-json'
+  config:
+    root: !!js dshHomePath('storages')
+
+- id: storage-domain
+  name: '@deepseek-ai/dsh-storage-domain'
+  config:
+    backend: json
+
+- id: commands
+  name: '@deepseek-ai/dsh-commands'
+
+- id: objective
+  name: '@deepseek-ai/dsh-objective'
+
+- id: decision
+  name: '@deepseek-ai/dsh-decision'
+
+- id: command-decision
+  name: '@deepseek-ai/dsh-command-decision'

@@ -46,4 +46,30 @@ describe('headless-agent keyless smoke', () => {
     expect(String(result?.['output'])).toContain('CLI_TOOL_ROUND_TRIP')
     expect(persistedHeader).toMatchObject({ type: 'session' })
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+
+  it('boots the decision layer through the Loader and drives its full lifecycle keylessly', async () => {
+    const decisionDriver = fileURLToPath(new URL('./fixtures/decision-smoke-driver.ts', import.meta.url))
+    const decisionConfig = fileURLToPath(new URL('./fixtures/decision/cordis.yml', import.meta.url))
+    const { stdout, stderr } = await runLoaderSmoke({
+      label: 'decision-layer keyless smoke',
+      tempDirPrefix: 'decision-smoke-',
+      binScript: decisionDriver,
+      libBinScript: decisionDriver,
+      configPath: decisionConfig,
+      binArgs: [decisionConfig],
+      tsconfigPath,
+    })
+    expect(stderr).toBe('')
+    const summary = JSON.parse(stdout.trim().split('\n').at(-1) ?? '{}') as Record<string, unknown>
+    expect(summary).toMatchObject({
+      type: 'decision-smoke',
+      gated: true,
+      status: 'decided',
+      chosen: 'repair',
+      predictedConfidence: 0.7,
+      counterEvidenceRecorded: true,
+      reviewOutcome: 'P0s closed, no regressions',
+      trailUnderObjective: 1,
+    })
+  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 })

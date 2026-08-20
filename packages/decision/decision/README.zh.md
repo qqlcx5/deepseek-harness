@@ -10,7 +10,7 @@
 
 `ctx.decisions` 提供 create、get、list、listOpen、update、decide、supersede、recordReview、reviewsOf 与 delete。所有变更在串行写链上执行,且只在持久写入成功后发布 `decision/changed`。启动时校验注册表顺序与 decisions 表完全一致,任何分歧都立即失败。
 
-每个决策以 `open` 状态创建,反证段为空串;草稿更新(问题、选项、反证、推荐、理由、置信度、可逆性、到期时间)仅对 open 决策合法——已决定或被取代的决策是历史。`decide` 在选项卡非空时校验所选 label 必须在卡上,冻结 `predictedConfidence`(显式覆盖值,否则用草稿置信度)并盖 `decidedAt`。`recordReview` 基于冻结的预测追加一行校准记录;同一决策允许多次回访;被删决策的回访记录保留。选项 label 在单个决策内唯一且非空;置信度是 [0, 1] 内的有限数。
+每个决策以 `open` 状态创建,反证段为空串;草稿更新(问题、选项、反证、推荐、理由、置信度、可逆性、到期时间)仅对 open 决策合法——已决定或被取代的决策是历史。`decide` 在选项卡非空时校验所选 label 必须在卡上,冻结 `predictedConfidence`(显式覆盖值,否则用草稿置信度)并盖 `decidedAt`。不可逆决策要求 `confirm: true`——第一遍以 `DECISION_IRREVERSIBLE_CONFIRM` 拒绝,促使调用面引用当前反证段后再走第二遍;`expectedUpdatedAt` 栅栏在读卡人读卡之后卡被改动时以 `DECISION_STALE_CARD` 拒绝,批准一张人没看过的卡因此不可能。`recordReview` 基于冻结的预测追加一行校准记录,把决策的目标快照到该行,且在被度量的决策删除后保留。`reviewsByObjective` 按目标聚合轨迹、旧者在前——校准读的是一个主题,不是一张卡;无链接决策的回访不进任何聚合。选项 label 在单个决策内唯一且非空;置信度是 [0, 1] 内的有限数。
 
 反证字段作为字段是必填的:可以为空,不能缺席——设置议程的面必须同时携带它所知道的对自己不利的证据。强制执行在持久边界(domain schema 没有缺席形态)与渲染决策卡的消费面上。
 
@@ -29,6 +29,8 @@ The package contributes no model request content, so an existing request prefix 
 ## Known Limitations and Deferred Work
 
 - **无自动回访投递** — `dueAt` 是持久字段,到期决策经列表视图呈现;搭载 schedule 缝需要跨会话决策目前没有的会话锚点。命令面改为列出到期未回访决策。
-- **校准只有存储** — 长周期校准报告(按 Agent Note,至少 100 条回访后才报告)尚无消费者;`reviewsOf` 是原始轨迹。
+- **校准只有存储** — 长周期校准报告(按 Agent Note,至少 100 条回访后才报告)尚无消费者;`reviewsOf` 与 `reviewsByObjective` 是原始轨迹。
+- **回访无限制** — `recordReview` 没有速率约束;失控消费者可追加重复结果行污染轨迹(读取端去重未实现)。
+- **不可逆门是流程性的,不是认知性的** — `confirm: true` 证明发生了第二遍,不证明人读了反证段;语义检查留在渲染面与抽查审计。
 - **无 claim 链接** — 证据按设计是自由文本,直到知识层落地;回填把引用转为 claim id,不改动本注册表。
 - **回访比决策活得久** — 删除决策按设计保留其回访行(校准历史);需要联查的列表以 `decisionId` 对缺席记录过滤。

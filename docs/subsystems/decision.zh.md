@@ -70,13 +70,19 @@ async update(id: DecisionId, request: UpdateDecisionRequest): Promise<DecisionVi
 /**
  * Make the decision: choose one option, freeze the confidence snapshot the
  * calibration trail reads, and stamp the instant. With a non-empty option
- * card the chosen label must name one of its options.
+ * card the chosen label must name one of its options. An irreversible
+ * decision requires an explicit confirmation pass (`confirm: true`): the
+ * first attempt rejects with `DECISION_IRREVERSIBLE_CONFIRM` so the caller
+ * surfaces the counter-evidence and cited sources before the second pass.
+ * An `expectedUpdatedAt` fence rejects with `DECISION_STALE_CARD` when the
+ * card changed since the caller read it — approving a card the human never
+ * saw must be impossible.
  * @param id - Decision id.
  * @param chosen - Chosen option label.
- * @param options - Optional override of the confidence frozen at decide time.
+ * @param options - Optional confidence override, irreversible confirmation, and the card stamp the caller read.
  * @returns the decided view.
  */
-async decide(id: DecisionId, chosen: string, options: { confidence?: number } = {}): Promise<DecisionView>
+async decide( id: DecisionId, chosen: string, options: { confidence?: number; confirm?: boolean; expectedUpdatedAt?: string } = {}, ): Promise<DecisionView>
 
 /**
  * Mark a decision superseded: kept for the trail, no longer the answer to
@@ -105,6 +111,17 @@ async recordReview(id: DecisionId, actualOutcome: string, options: { calibration
 reviewsOf(id: DecisionId): DecisionReview[]
 
 /**
+ * The calibration trail aggregated by objective: every review whose
+ * decision carried this objective, oldest first, including reviews of
+ * decisions that were later deleted (the review row snapshots the
+ * objective at record time). Calibration reads this, not per-decision
+ * queries: the unit a human calibrates is a topic, not one card.
+ * @param objectiveId - The objective to aggregate under.
+ * @returns every matching review, oldest first.
+ */
+reviewsByObjective(objectiveId: ObjectiveId): DecisionReview[]
+
+/**
  * Delete one decision record while retaining its review trail (calibration
  * history outlives the decision it measured). Idempotent for an unknown id.
  * @param id - Decision to remove.
@@ -113,7 +130,9 @@ reviewsOf(id: DecisionId): DecisionReview[]
 async delete(id: DecisionId): Promise<boolean>
 ```
 
-Source: [`packages/decision/decision/src/index.ts:171`](../../packages/decision/decision/src/index.ts)
+Types: [ObjectiveId](objective.md)
+
+Source: [`packages/decision/decision/src/index.ts:174`](../../packages/decision/decision/src/index.ts)
 
 <a id="decision-events"></a>
 
@@ -135,5 +154,5 @@ One durable decision mutation committed.
 'decision/changed'(payload: DecisionChanged): void
 ```
 
-Source: [`packages/decision/decision/src/index.ts:101`](../../packages/decision/decision/src/index.ts)
+Source: [`packages/decision/decision/src/index.ts:104`](../../packages/decision/decision/src/index.ts)
 <!-- END GENERATED cordis-surface -->

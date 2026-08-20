@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-08-16-agentdeck-convergence-layers.md
-2026-08-16-agentdeck-convergence-layers.md: 9357a2b94a31e75e8f49be232366caead0d360a0
-2026-08-16-agentdeck-convergence-layers.zh.md: 5ea0395aaca19615361cb0347ef933224037163e
+2026-08-16-agentdeck-convergence-layers.md: bbeaa869db5261f395eb3b8f4ca419b0a289d31d
+2026-08-16-agentdeck-convergence-layers.zh.md: 7b237d7cd5ad1306cf4638333cdb8357888220fb
